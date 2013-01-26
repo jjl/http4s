@@ -1,49 +1,33 @@
 package org.http4s
 
 import java.io.File
-import java.net.{URL, InetAddress}
+import java.net.{URI, URL, InetAddress}
 
-trait Request {
-  def authType: Option[AuthType]
-
+case class Request(
+  requestMethod: Method = Method.Get,
+  scriptName: String = "",
+  pathInfo: String = "",
+  queryString: String = "",
+  pathTranslated: Option[File] = None,
+  protocol: ServerProtocol = HttpVersion.Http_1_1,
+  headers: RequestHeaders,
+  urlScheme: UrlScheme = UrlScheme.Http,
+  serverName: String = InetAddress.getLocalHost.getHostName,
+  serverPort: Int = 80,
+  serverSoftware: Option[ServerSoftware] = None,
+  remote: InetAddress = InetAddress.getLocalHost,
+  http4sVersion: Http4sVersion = Http4sVersion
+) {
   def contentLength: Option[Long] = headers.contentLength
-
   def contentType: Option[ContentType] = headers.contentType
+  lazy val uri: URI = new URI(urlScheme.toString, null, serverName, serverPort, scriptName+pathInfo, queryString, null)
+  lazy val authType: Option[AuthType] = None
+  lazy val remoteAddr = remote.getHostAddress
+  lazy val remoteHost = remote.getHostName
+}
 
-  def http4sVersion: Http4sVersion = Http4sVersion
+trait RequestHeaders extends Headers
 
-  def pathInfo: String = url.getPath
-
-  def pathTranslated: Option[File] = None
-
-  def queryString: String = Option(url.getQuery).getOrElse("")
-
-  def remoteAddr: InetAddress
-
-  def remoteHost: String
-
-  def remoteIdent: Option[String]
-
-  def remoteUser: Option[String]
-
-  def requestMethod: Method
-
-  def scriptName: String = ""
-
-  def serverName: String = url.getHost
-
-  def serverPort: Int = url.getPort
-
-  def serverProtocol: ServerProtocol
-
-  def serverSoftware: ServerSoftware
-
-  def headers: RequestHeaders
-
-  def urlScheme: UrlScheme = url.getProtocol match {
-    case "http" => UrlScheme.Http
-    case "https" => UrlScheme.Https
-  }
-
-  def url: URL
+object RequestHeaders {
+  val Empty: RequestHeaders = ???
 }
