@@ -1,7 +1,8 @@
 package org.http4s
 
-import collection.{mutable, immutable}
+import scala.collection.{mutable, immutable}
 import scala.collection.generic.CanBuildFrom
+import scala.util.Try
 
 class Headers private(headers: Seq[Header])
   extends immutable.Seq[Header]
@@ -15,8 +16,14 @@ class Headers private(headers: Seq[Header])
 
   def iterator: Iterator[Header] = headers.iterator
 
-  lazy val contentLength: Option[Long] = None
-  lazy val contentType: Option[ContentType] = None
+  def apply(name: String): String = get(name).get
+
+  def get(name: String): Option[String] = find(_.name == name).map(_.value)
+
+  def getAll(name: String): Seq[String] = filter(_.name == name).map(_.value)
+
+  lazy val contentLength: Option[Long] = ???
+  lazy val contentType: Option[ContentType] = ???
 }
 
 object Headers {
