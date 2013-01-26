@@ -1,11 +1,42 @@
 package org.http4s
 
-trait Headers extends Seq[Header] {
-  def contentType: Option[ContentType]
-  def contentLength: Option[Long]
+import scala.collection.{mutable, immutable}
+import scala.collection.generic.CanBuildFrom
+import scala.util.Try
+
+class Headers private(headers: Seq[Header])
+  extends immutable.Seq[Header]
+  with collection.SeqLike[Header, Headers]
+{
+  override protected[this] def newBuilder: mutable.Builder[Header, Headers] = Headers.newBuilder
+
+  def length: Int = headers.length
+
+  def apply(idx: Int): Header = headers(idx)
+
+  def iterator: Iterator[Header] = headers.iterator
+
+  def apply(name: String): String = get(name).get
+
+  def get(name: String): Option[String] = find(_.name == name).map(_.value)
+
+  def getAll(name: String): Seq[String] = filter(_.name == name).map(_.value)
+
+  lazy val contentLength: Option[Long] = ???
+  lazy val contentType: Option[ContentType] = ???
 }
 
-trait Header {
-  def name: String
-  def value: String
+object Headers {
+  def apply(headers: Header*): Headers = new Headers(headers)
+
+  implicit def canBuildFrom: CanBuildFrom[Headers, Header, Headers] =
+    new CanBuildFrom[Headers, Header, Headers] {
+      def apply(from: Headers): mutable.Builder[Header, Headers] = newBuilder
+      def apply(): mutable.Builder[Header, Headers] = newBuilder
+    }
+
+  private def newBuilder: mutable.Builder[Header, Headers] =
+    new mutable.ListBuffer[Header] mapResult(xs => new Headers(xs))
 }
+
+case class Header(name: String, value: String)
