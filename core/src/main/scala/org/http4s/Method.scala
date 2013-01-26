@@ -13,4 +13,6 @@ object Method {
   case object Connect extends Method
   case object Patch extends Method
   case class ExtensionMethod(name: String) extends Method
+
+  def apply(name: String): Method = ???
 }
