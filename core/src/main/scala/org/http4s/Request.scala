@@ -2,6 +2,8 @@ package org.http4s
 
 import java.io.File
 import java.net.{URI, URL, InetAddress}
+import play.api.libs.iteratee.Enumerator
+import concurrent.Future
 
 case class Request(
   requestMethod: Method = Method.Get,
@@ -14,6 +16,8 @@ case class Request(
   urlScheme: UrlScheme = UrlScheme.Http,
   serverName: String = InetAddress.getLocalHost.getHostName,
   serverPort: Int = 80,
+  entityBody: Enumerator[Array[Byte]] = Enumerator.eof[Array[Byte]],
+  trailers: Future[Headers] = Future.successful(Headers.Empty),
   serverSoftware: ServerSoftware = ServerSoftware.Unknown,
   remote: InetAddress = InetAddress.getLocalHost,
   http4sVersion: Http4sVersion = Http4sVersion

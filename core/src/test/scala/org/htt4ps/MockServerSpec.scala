@@ -17,10 +17,7 @@ class MockServerSpec extends Specification {
 
   val server = new MockServer({
     case req if req.requestMethod == Method.Post && req.pathInfo == "/echo" =>
-      // Iteratee brain teaser: how can we return the response header immediately while
-      // continuing to consume the request body?
-      Iteratee.consume[Array[Byte]]().asInstanceOf[Iteratee[Array[Byte], Array[Byte]]]
-        .map { bytes => Response(entityBody = Enumerator(bytes)) }
+      Future.successful(Response(entityBody = req.entityBody))
     case req if req.pathInfo == "/fail" =>
       sys.error("FAIL")
   })
@@ -30,7 +27,7 @@ class MockServerSpec extends Specification {
       val req = Request(requestMethod = Method.Post, pathInfo = "/echo")
       val reqBody = Enumerator("one", "two", "three").through(Enumeratee.map(Codec.toUTF8))
       Await.result(for {
-        res <- server(req, reqBody)
+        res <- server(req.copy(entityBody = reqBody))
         resBytes <- res.entityBody.run(Iteratee.consume[Array[Byte]]()).asInstanceOf[Future[Array[Byte]]]
         resString = new String(resBytes)
       } yield {
@@ -40,9 +37,8 @@ class MockServerSpec extends Specification {
 
     "fall through to not found" in {
       val req = Request(pathInfo = "/bielefield")
-      val reqBody = Enumerator.eof[Array[Byte]]
       Await.result(for {
-        res <- server(req, reqBody)
+        res <- server(req)
       } yield {
         res.statusLine.code should_==(404)
       }, Duration(5, TimeUnit.SECONDS))
@@ -51,9 +47,8 @@ class MockServerSpec extends Specification {
 
     "handle exceptions" in {
       val req = Request(pathInfo = "/fail")
-      val reqBody = Enumerator.eof[Array[Byte]]
       Await.result(for {
-        res <- server(req, reqBody)
+        res <- server(req)
       } yield {
         res.statusLine.code should_==(500)
       }, Duration(5, TimeUnit.SECONDS))

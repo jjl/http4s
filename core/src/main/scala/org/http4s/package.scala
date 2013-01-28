@@ -1,11 +1,10 @@
 package org
 
 import play.api.libs.iteratee.Iteratee
+import concurrent.{ExecutionContext, Future}
 
 package object http4s {
-  type Route = PartialFunction[Request, Handler]
-
-  type Handler = Iteratee[Array[Byte], Response]
+  type Route = PartialFunction[Request, Future[Response]]
 
   type Middleware = (Route => Route)
 
@@ -17,7 +16,7 @@ package object http4s {
 
   type ResponseTransformer = PartialFunction[Response, Response]
 
-  def transformResponse(f: ResponseTransformer): Middleware = {
-    route: Route => route andThen { handler => handler.map(f) }
+  def transformResponse(f: ResponseTransformer)(implicit executor: ExecutionContext): Middleware = {
+    route: Route => route andThen { _.map(f) }
   }
 }
