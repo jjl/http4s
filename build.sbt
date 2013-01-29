@@ -38,7 +38,8 @@ javacOptions in ThisBuild ++= Seq("-Xlint:unchecked", "-Xlint:deprecation")
 
 resolvers in ThisBuild ++= Seq(
   Resolver.typesafeRepo("releases"),
-  "spray repo" at "http://repo.spray.io"
+  "spray repo" at "http://repo.spray.io",
+  Resolver.sonatypeRepo("snapshots")
 )
 
 testOptions in ThisBuild += Tests.Argument(TestFrameworks.Specs2, "console", "junitxml")
