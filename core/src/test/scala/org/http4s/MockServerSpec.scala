@@ -1,4 +1,4 @@
-package org.htt4ps
+package org.http4s
 
 import scala.language.reflectiveCalls
 
@@ -9,8 +9,6 @@ import scala.io.Codec
 
 import org.specs2.mutable.Specification
 import play.api.libs.iteratee._
-import org.http4s.{Request, Response, Method, MockServer}
-import java.lang.String
 
 class MockServerSpec extends Specification {
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -25,10 +23,10 @@ class MockServerSpec extends Specification {
   "A mock server" should {
     "handle matching routes" in {
       val req = Request(requestMethod = Method.Post, pathInfo = "/echo")
-      val reqBody = Enumerator("one", "two", "three").through(Enumeratee.map(Codec.toUTF8))
+      val reqBody = Enumerator("one", "two", "three").through(Enumeratee.map(Codec.toUTF8)).through(Enumeratee.map(Chunk.chunk(_)))
       Await.result(for {
         res <- server(req.copy(entityBody = reqBody))
-        resBytes <- res.entityBody.run(Iteratee.consume[Array[Byte]]()).asInstanceOf[Future[Array[Byte]]]
+        resBytes <- res.entityBody.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
         resString = new String(resBytes)
       } yield {
         resString should_==("onetwothree")
@@ -37,6 +35,7 @@ class MockServerSpec extends Specification {
 
     "fall through to not found" in {
       val req = Request(pathInfo = "/bielefield")
+      val reqBody = Enumerator.eof[Chunk]
       Await.result(for {
         res <- server(req)
       } yield {
@@ -47,6 +46,7 @@ class MockServerSpec extends Specification {
 
     "handle exceptions" in {
       val req = Request(pathInfo = "/fail")
+      val reqBody = Enumerator.eof[Chunk]
       Await.result(for {
         res <- server(req)
       } yield {
