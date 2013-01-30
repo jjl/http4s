@@ -30,8 +30,7 @@ class MockServerSpec extends Specification {
       val reqBody = MessageBody("one", "two", "three")
       Await.result(for {
         res <- server(req.copy(messageBody = reqBody))
-        resBytes <- res.entityBody.enumerate.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
-        resString = new String(resBytes)
+        resString <- res.entityBody.asString
       } yield {
         resString should_==("onetwothree")
       }, Duration(5, TimeUnit.SECONDS))
@@ -42,8 +41,7 @@ class MockServerSpec extends Specification {
       val reqBody = MessageBody(1, 2, 3)
       Await.result(for {
         res <- server(req.copy(messageBody = reqBody))
-        resBytes <- res.entityBody.enumerate.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
-        resString = new String(resBytes)
+        resString <- res.entityBody.asString
       } yield {
         resString should_==("6")
       }, Duration(5, TimeUnit.SECONDS))
