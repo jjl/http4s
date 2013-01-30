@@ -16,7 +16,7 @@ case class Request(
   urlScheme: UrlScheme = UrlScheme.Http,
   serverName: String = InetAddress.getLocalHost.getHostName,
   serverPort: Int = 80,
-  entityBody: Enumerator[Chunk] = Enumerator.eof[Chunk],
+  messageBody: MessageBody = MessageBody.Empty,
   serverSoftware: ServerSoftware = ServerSoftware.Unknown,
   remote: InetAddress = InetAddress.getLocalHost,
   http4sVersion: Http4sVersion = Http4sVersion
