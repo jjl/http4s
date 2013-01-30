@@ -2,15 +2,14 @@ package org.http4s
 
 import scala.language.reflectiveCalls
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.{Future, Await}
-import scala.concurrent.duration.Duration
-import scala.io.Codec
+import scala.concurrent.duration._
 
 import org.specs2.mutable.Specification
 import play.api.libs.iteratee._
+import org.specs2.time.NoTimeConversions
 
-class MockServerSpec extends Specification {
+class MockServerSpec extends Specification with NoTimeConversions {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   val server = new MockServer({
@@ -24,46 +23,31 @@ class MockServerSpec extends Specification {
       sys.error("FAIL")
   })
 
+  def response(req: Request, reqBody: MessageBody = MessageBody.Empty): Response = {
+    Await.result(server(req.copy(messageBody = reqBody)), 5 seconds)
+  }
+
   "A mock server" should {
     "handle matching routes" in {
       val req = Request(requestMethod = Method.Post, pathInfo = "/echo")
       val reqBody = MessageBody("one", "two", "three")
-      Await.result(for {
-        res <- server(req.copy(messageBody = reqBody))
-        resString <- res.entityBody.asString
-      } yield {
-        resString should_==("onetwothree")
-      }, Duration(5, TimeUnit.SECONDS))
+      Await.result(response(req, reqBody).entityBody.asString, 5 seconds) should_==("onetwothree")
     }
 
     "runs a sum" in {
       val req = Request(requestMethod = Method.Post, pathInfo = "/sum")
       val reqBody = MessageBody(1, 2, 3)
-      Await.result(for {
-        res <- server(req.copy(messageBody = reqBody))
-        resString <- res.entityBody.asString
-      } yield {
-        resString should_==("6")
-      }, Duration(5, TimeUnit.SECONDS))
+      Await.result(response(req, reqBody).entityBody.asString, 5 seconds) should_==("6")
     }
 
     "fall through to not found" in {
       val req = Request(pathInfo = "/bielefield")
-      Await.result(for {
-        res <- server(req)
-      } yield {
-        res.statusLine.code should_==(404)
-      }, Duration(5, TimeUnit.SECONDS))
-
+      response(req).statusLine should_== StatusLine.NotFound
     }
 
     "handle exceptions" in {
       val req = Request(pathInfo = "/fail")
-      Await.result(for {
-        res <- server(req)
-      } yield {
-        res.statusLine.code should_==(500)
-      }, Duration(5, TimeUnit.SECONDS))
+      response(req).statusLine should_== StatusLine.InternalServerError
     }
   }
 }
