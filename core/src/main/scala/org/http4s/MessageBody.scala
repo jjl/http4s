@@ -1,24 +1,29 @@
 package org.http4s
 
-import scala.language.implicitConversions
-import scala.concurrent.{ExecutionContext, Future, future}
+import concurrent.{Promise, ExecutionContext, Future, future}
 
 import play.api.libs.iteratee._
 import play.api.libs.iteratee.Enumerator._
 
-case class MessageBody(body: Enumerator[BodyChunk] = Enumerator.eof, last: LastChunk = LastChunk.Empty)
-                       extends Enumerator[Chunk] {
-  def apply[A](it: Iteratee[Chunk, A]): Future[Iteratee[Chunk, A]] = {
-    body.mapInput[Chunk]({
+case class MessageBody(body: Enumerator[BodyChunk] = Enumerator.eof,
+                       last: Promise[LastChunk] = LastChunk.EmptyPromise) {
+  def enumerate(implicit executor: ExecutionContext): Enumerator[Chunk] = {
+    val bodyEnum = body.mapInput[Chunk]({
       case Input.EOF => Input.Empty
       case in => in
-    }).andThen(enumInput(Input.El[Chunk](last)).andThen(Enumerator.eof))(it)
+    })
+    val lastChunkEnum = last.future.map(chunk => enumInput(Input.El[Chunk](chunk)))
+    bodyEnum andThen flatten(lastChunkEnum) andThen Enumerator.eof
   }
 }
 
 object MessageBody {
-  implicit def fromBodyChunkEnumerator(enumerator: Enumerator[BodyChunk]) = MessageBody(body = enumerator)
-  val Empty = MessageBody()
+  def apply[A](a: A*)(implicit writable: Writable[A], executor: ExecutionContext): MessageBody =
+    new MessageBody(enumerate(a).map(x => BodyChunk(writable.toBytes(x))))
+
+  def fromBodyChunkEnumerator(enumerator: Enumerator[BodyChunk]): MessageBody = MessageBody(body = enumerator)
+
+  val Empty = new MessageBody()
 }
 
 sealed trait Chunk {
@@ -33,6 +38,7 @@ case class LastChunk(extensions: Seq[ChunkExtension] = Nil, trailer: Headers = H
 
 object LastChunk {
   val Empty: LastChunk = LastChunk()
+  val EmptyPromise: Promise[LastChunk] = Promise.successful(Empty)
 }
 
 case class ChunkExtension(name: String, value: String)

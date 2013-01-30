@@ -19,7 +19,7 @@ class MockServerSpec extends Specification {
     case req if req.requestMethod == Method.Post && req.pathInfo == "/sum" =>
       val it = Enumeratee.collect[Chunk] { case chunk: BodyChunk => new String(chunk.bytes).toInt }
         .transform(Iteratee.fold(0)((sum, i) => sum + i))
-      req.messageBody.run(it).map { body => Response(entityBody = Enumerator(BodyChunk(body.toString.getBytes))) }
+      req.messageBody.enumerate.run(it).map { sum => Response(entityBody = MessageBody(sum)) }
     case req if req.pathInfo == "/fail" =>
       sys.error("FAIL")
   })
@@ -27,10 +27,10 @@ class MockServerSpec extends Specification {
   "A mock server" should {
     "handle matching routes" in {
       val req = Request(requestMethod = Method.Post, pathInfo = "/echo")
-      val reqBody = Enumerator("one", "two", "three").through(Enumeratee.map(Codec.toUTF8)).through(Enumeratee.map(BodyChunk(_)))
+      val reqBody = MessageBody("one", "two", "three")
       Await.result(for {
         res <- server(req.copy(messageBody = reqBody))
-        resBytes <- res.entityBody.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
+        resBytes <- res.entityBody.enumerate.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
         resString = new String(resBytes)
       } yield {
         resString should_==("onetwothree")
@@ -39,10 +39,10 @@ class MockServerSpec extends Specification {
 
     "runs a sum" in {
       val req = Request(requestMethod = Method.Post, pathInfo = "/sum")
-      val reqBody = Enumerator(1, 2, 3).through(Enumeratee.map(i => Codec.toUTF8(i.toString))).through(Enumeratee.map(BodyChunk(_)))
+      val reqBody = MessageBody(1, 2, 3)
       Await.result(for {
         res <- server(req.copy(messageBody = reqBody))
-        resBytes <- res.entityBody.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
+        resBytes <- res.entityBody.enumerate.run(Enumeratee.map[Chunk](_.bytes).transform(Iteratee.consume[Array[Byte]](): Iteratee[Array[Byte], Array[Byte]]))
         resString = new String(resBytes)
       } yield {
         resString should_==("6")
@@ -51,7 +51,6 @@ class MockServerSpec extends Specification {
 
     "fall through to not found" in {
       val req = Request(pathInfo = "/bielefield")
-      val reqBody = Enumerator.eof[BodyChunk]
       Await.result(for {
         res <- server(req)
       } yield {
